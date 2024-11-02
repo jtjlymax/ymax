@@ -1,0 +1,21 @@
+{
+    "name": "",
+    "type": "template",
+    "description": "YMax",
+    "keywords": ["template", "YMax", "YMax", "Mikrotik", "YMax", "Billing"],
+    "homepage": "",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "ibnux",
+            "email": "test",
+            "homepage": "test",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "kopokopo/k2-connect-php": "^1.2",
+        "stripe/stripe-php": "^15.1",
+        "selcom/selcom-apigw-client": "^1.0"
+    }
+}
