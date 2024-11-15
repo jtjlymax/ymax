@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <title>{Lang::T('Login')} - {$_c['CompanyName']}</title>
+  <title>{Lang::T('Logintetteststes')} - {$_c['CompanyName']}</title>
   <link rel="shortcut icon" href="ui/ui/images/logo.png" type="image/x-icon" />
   <link href="https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css" rel="stylesheet">
   <link rel="stylesheet" href="ui/ui/styles/bootstrap.min.css">
