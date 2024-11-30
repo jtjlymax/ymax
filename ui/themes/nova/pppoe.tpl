@@ -3,23 +3,17 @@
 <div class="row">
     <div class="col-sm-12">
         <div class="panel panel-hovered mb20 panel-primary">
-            <div class="panel-heading" style="display: flex; justify-content: space-between; align-items: center;">
-                <span>{Lang::T('PPPOE Plans')}</span>
-                <div class="btn-group">
-                    <!-- Need Help Button -->
-                    <button type="button" class="btn btn-info btn-sm" data-toggle="modal" data-target="#tutorialModal" style="margin-right: 10px;">
-                        {Lang::T('Need Help?')}
-                    </button>
-                    <!-- Sync All Button -->
-                    <a class="btn btn-primary btn-xs" title="Sync All" href="{$_url}services/sync/pppoe" onclick="return confirm('This will sync/send all PPPoE plans to all MikroTik routers?')">
-                        <span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> {Lang::T('Sync All')}
-                    </a>
-                    <!-- Sync Specific Router Button -->
-                    <button type="button" class="btn btn-danger btn-xs" data-toggle="modal" data-target="#routerSyncModal">
-                        <span class="glyphicon glyphicon-cog" aria-hidden="true"></span> {Lang::T('Sync by Router')}
-                    </button>
-                </div>
-            </div>
+<div class="panel-heading" style="display: flex; justify-content: space-between; align-items: center;">
+    <span>{Lang::T('PPPOE Plans')}</span>
+    <div class="btn-group">
+      <!--   <button type="button" class="btn btn-info btn-sm" data-toggle="modal" data-target="#tutorialModal" style="margin-right: 10px;">
+            {Lang::T('Need Help?')}
+        </button> -->
+        <a class="btn btn-primary btn-xs" title="save" href="{$_url}services/sync/pppoe" onclick="return confirm('This will sync/send PPPOE plan to Mikrotik?')">
+            <span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> sync
+        </a>
+    </div>
+</div>
 
             <div class="panel-body">
                 <div class="md-whiteframe-z1 mb20 text-center" style="padding: 15px">
@@ -29,7 +23,8 @@
                                 <div class="input-group-addon">
                                     <span class="fa fa-search"></span>
                                 </div>
-                                <input type="text" name="name" class="form-control" placeholder="{Lang::T('Search by Name')}...">
+                                <input type="text" name="name" class="form-control"
+                                    placeholder="{Lang::T('Search by Name')}...">
                                 <div class="input-group-btn">
                                     <button class="btn btn-success" type="submit">{Lang::T('Search')}</button>
                                 </div>
@@ -37,7 +32,8 @@
                         </form>
                     </div>
                     <div class="col-md-4">
-                        <a href="{$_url}services/pppoe-add" class="btn btn-primary btn-block"><i class="ion ion-android-add"> </i> {Lang::T('New Service Plan')}</a>
+                        <a href="{$_url}services/pppoe-add" class="btn btn-primary btn-block"><i
+                               class="ion ion-android-add"> </i> {Lang::T('New Service Plan')}</a>
                     </div>&nbsp;
                 </div>
                 <div class="table-responsive">
@@ -49,7 +45,6 @@
                                 <th>{Lang::T('Plan Price')}</th>
                                 <th>{Lang::T('Plan Validity')}</th>
                                 <th>{Lang::T('Pool')}</th>
-                                <th>{Lang::T('Expired IP Pool')}</th> <!-- New column for expired IP pool -->
                                 <th>{Lang::T('Routers')}</th>
                                 <th>{Lang::T('Manage')}</th>
                                 <th>ID</th>
@@ -64,7 +59,6 @@
                                     <td>{Lang::moneyFormat($ds['price'])}</td>
                                     <td>{$ds['validity']} {$ds['validity_unit']}</td>
                                     <td>{$ds['pool']}</td>
-                                    <td>{$ds['pool_expired']|default:'N/A'}</td> <!-- Display expired IP pool -->
                                     <td>
                                     {if $ds['is_radius']}
                                         <span class="label label-primary">RADIUS</span>
@@ -74,8 +68,11 @@
                                         {/if}
                                     {/if}</td>
                                     <td>
-                                        <a href="{$_url}services/pppoe-edit/{$ds['id']}" class="btn btn-info btn-xs">{Lang::T('Edit')}</a>
-                                        <a href="{$_url}services/pppoe-delete/{$ds['id']}" onclick="return confirm('{Lang::T('Delete')}?')" id="{$ds['id']}" class="btn btn-danger btn-xs"><i class="glyphicon glyphicon-trash"></i></a>
+                                        <a href="{$_url}services/pppoe-edit/{$ds['id']}"
+                                            class="btn btn-info btn-xs">{Lang::T('Edit')}</a>
+                                        <a href="{$_url}services/pppoe-delete/{$ds['id']}"
+                                              onclick="return confirm('{Lang::T('Delete')}?')" id="{$ds['id']}"
+                                                    class="btn btn-danger btn-xs"><i class="glyphicon glyphicon-trash"></i></a>
                                     </td>
                                     <td>{$ds['id']}</td>
                                 </tr>
@@ -89,35 +86,6 @@
     </div>
 </div>
 
-<!-- Sync by Router Modal -->
-<div class="modal fade" id="routerSyncModal" tabindex="-1" role="dialog" aria-labelledby="routerSyncModalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="routerSyncModalLabel">{Lang::T('Select Router to Sync')}</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <form id="routerSyncForm" method="post" action="{$_url}services/sync-pppoe">
-                    <div class="form-group">
-                        <label for="routerSelect">{Lang::T('Router')}</label>
-                        <select id="routerSelect" name="router" class="form-control select2" required>
-                            <option value="">{Lang::T('Select Router')}</option>
-                            {foreach $routerssync as $router}
-                                <option value="{$router.id}">{$router.name}</option>
-                            {/foreach}
-                        </select>
-                    </div>
-                    <button type="submit" class="btn btn-danger">{Lang::T('Sync Now')}</button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Tutorial Modal -->
 <div class="modal fade" id="tutorialModal" tabindex="-1" role="dialog" aria-labelledby="tutorialModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">

@@ -1,5 +1,5 @@
 <?php
-//add  this under system/controllers/services.php
+
 _admin();
 $ui->assign('_title', Lang::T('Hotspot Plans'));
 $ui->assign('_system_menu', 'services');
@@ -11,165 +11,157 @@ $ui->assign('_admin', $admin);
 if (!in_array($admin['user_type'], ['SuperAdmin', 'Admin'])) {
     _alert(Lang::T('You do not have permission to access this page'),'danger', "dashboard");
 }
-// Fetch routers to populate the dropdown for syncing, assign to $routerssync
-$routers = ORM::for_table('tbl_routers')->where('enabled', 1)->find_array();
-$ui->assign('routers', $routers);
-// Fetch routers to populate the dropdown for syncing
-$routerssync = ORM::for_table('tbl_routers')->where('enabled', 1)->find_array();
-$ui->assign('routerssync', $routerssync); // Assign routers to the template
 
-
-// Fetch all enabled Hotspot plans to display in the table
-$plans = ORM::for_table('tbl_bandwidth')
-            ->join('tbl_plans', ['tbl_bandwidth.id', '=', 'tbl_plans.id_bw'])
-            ->where('tbl_plans.type', 'Hotspot')
-            ->where('tbl_plans.enabled', '1')
-            ->find_array();
-$ui->assign('d', $plans); // Assign plans to the template
 use PEAR2\Net\RouterOS;
 
 require_once 'system/autoload/PEAR2/Autoload.php';
-
-// Get the action and router ID from the request
-$action = $routes['1'] ?? '';
-$routerId = $_POST['router'] ?? null;
 
 switch ($action) {
     case 'sync':
         set_time_limit(-1);
         if ($routes['2'] == 'hotspot') {
-            // Retrieve all enabled Hotspot plans from the database
             $plans = ORM::for_table('tbl_bandwidth')
-                        ->join('tbl_plans', array('tbl_bandwidth.id', '=', 'tbl_plans.id_bw'))
-                        ->where('tbl_plans.type', 'Hotspot')
-                        ->where('tbl_plans.enabled', '1')
-                        ->find_many();
+                ->join('tbl_plans', array('tbl_bandwidth.id', '=', 'tbl_plans.id_bw'))
+                ->where('tbl_plans.type', 'Hotspot')
+                ->where('tbl_plans.enabled', '1')
+                ->find_many();
             $log = '';
             $router = '';
-        
-            // Iterate through each plan
             foreach ($plans as $plan) {
-                // Check if the plan uses RADIUS for authentication and bandwidth management
                 if ($plan['is_radius']) {
-                    // Convert the bandwidth rates to the appropriate format for RADIUS
-                    $raddown = $plan['rate_down_unit'] == 'Kbps' ? '000' : '000000';
-                    $radup = $plan['rate_up_unit'] == 'Kbps' ? '000' : '000000';
+                    if ($plan['rate_down_unit'] == 'Kbps') {
+                        $raddown = '000';
+                    } else {
+                        $raddown = '000000';
+                    }
+                    if ($plan['rate_up_unit'] == 'Kbps') {
+                        $radup = '000';
+                    } else {
+                        $radup = '000000';
+                    }
                     $radiusRate = $plan['rate_up'] . $radup . '/' . $plan['rate_down'] . $raddown;
-        
-                    // Update or insert the plan into the RADIUS server
                     Radius::planUpSert($plan['id'], $radiusRate);
                     $log .= "DONE : Radius $plan[name_plan], $plan[shared_users], $radiusRate<br>";
                 } else {
-                    // Establish a new router connection if the current router is different
                     if ($router != $plan['routers']) {
                         $mikrotik = Mikrotik::info($plan['routers']);
                         $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
                         $router = $plan['routers'];
                     }
-        
-                    // Determine the units for the bandwidth
-                    $unitdown = $plan['rate_down_unit'] == 'Kbps' ? 'k' : 'M';
-                    $unitup = $plan['rate_up_unit'] == 'Kbps' ? 'k' : 'M';
-                    $rate = $plan['rate_up'] . $unitup . "/" . $plan['rate_down'] . $unitdown;
-        
-                    // Check if all burst fields are provided and not zero
-                    if (!empty($plan['burst_limit_up']) && !empty($plan['burst_limit_down']) &&
-                        !empty($plan['burst_threshold_up']) && !empty($plan['burst_threshold_down']) &&
-                        !empty($plan['burst_time'])) {
-                        // Construct the burst settings string
-                        $burst_limit = $plan['burst_limit_up'] . ($plan['burst_limit_up_unit'] == 'Kbps' ? 'k' : 'M') .
-                                        "/" . $plan['burst_limit_down'] . ($plan['burst_limit_down_unit'] == 'Kbps' ? 'k' : 'M');
-                        $burst_threshold = $plan['burst_threshold_up'] . ($plan['burst_threshold_up_unit'] == 'Kbps' ? 'k' : 'M') .
-                                            "/" . $plan['burst_threshold_down'] . ($plan['burst_threshold_down_unit'] == 'Kbps' ? 'k' : 'M');
-                        $burst_time = $plan['burst_time'];
-        
-                        // Append burst settings to the rate limit string
-                        $rate .= " " . $burst_limit . " " . $burst_threshold . " " . $burst_time . "/" . $burst_time;
+                    if ($plan['rate_down_unit'] == 'Kbps') {
+                        $unitdown = 'k';
+                    } else {
+                        $unitdown = 'M';
                     }
-        
-                    // Send the rate limit settings to the MikroTik router
+                    if ($plan['rate_up_unit'] == 'Kbps') {
+                        $unitup = 'k';
+                    } else {
+                        $unitup = 'M';
+                    }
+                    $rate = $plan['rate_up'] . $unitup . "/" . $plan['rate_down'] . $unitdown;
+    
+                    // Get the burst limit
+                    $burst_limit_up = $plan['burst_limit_up'];
+                    $burst_limit_up_unit = $plan['burst_limit_up_unit'] == 'Kbps' ? 'k' : 'M';
+                    $burst_limit_down = $plan['burst_limit_down'];
+                    $burst_limit_down_unit = $plan['burst_limit_down_unit'] == 'Kbps' ? 'k' : 'M';
+                    $burst_limit = $burst_limit_up . $burst_limit_up_unit . "/" . $burst_limit_down . $burst_limit_down_unit;
+    
+                    // Get the burst threshold
+                    $burst_threshold_up = $plan['burst_threshold_up'];
+                    $burst_threshold_up_unit = $plan['burst_threshold_up_unit'] == 'Kbps' ? 'k' : 'M';
+                    $burst_threshold_down = $plan['burst_threshold_down'];
+                    $burst_threshold_down_unit = $plan['burst_threshold_down_unit'] == 'Kbps' ? 'k' : 'M';
+                    $burst_threshold = $burst_threshold_up . $burst_threshold_up_unit . "/" . $burst_threshold_down . $burst_threshold_down_unit;
+    
+                    // Get the burst time
+                    $burst_time = $plan['burst_time'];
+    
+                    // Construct the rate limit string with burst information
+                    $rate = $rate . " " . $burst_limit . " " . $burst_threshold . " " . $burst_time . "/" . $burst_time;
+
                     Mikrotik::addHotspotPlan($client, $plan['name_plan'], $plan['shared_users'], $rate);
                     $log .= "DONE : $plan[name_plan], $plan[shared_users], $rate<br>";
-        
-                    // Set the expired pool if applicable
                     if (!empty($plan['pool_expired'])) {
                         Mikrotik::setHotspotExpiredPlan($client, 'EXPIRED FREEISPRADIUS ' . $plan['pool_expired'], $plan['pool_expired']);
-                        $log .= "DONE Expired: EXPIRED FREEISPRADIUS $plan[pool_expired]<br>";
+                        $log .= "DONE Expired : EXPIRED FREEISPRADIUS $plan[pool_expired]<br>";
                     }
                 }
             }
-        
-            // Redirect to the Hotspot services page with a success message and log
             r2(U . 'services/hotspot', 's', $log);
+
         }
-        
 
         else if ($routes['2'] == 'pppoe') {
-            // Retrieve all enabled PPPoE plans from the database
             $plans = ORM::for_table('tbl_bandwidth')
-                        ->join('tbl_plans', array('tbl_bandwidth.id', '=', 'tbl_plans.id_bw'))
-                        ->where('tbl_plans.type', 'PPPOE')
-                        ->where('tbl_plans.enabled', '1')
-                        ->find_many();
+                ->join('tbl_plans', array('tbl_bandwidth.id', '=', 'tbl_plans.id_bw'))
+                ->where('tbl_plans.type', 'PPPOE')
+                ->where('tbl_plans.enabled', '1')
+                ->find_many();
             $log = '';
             $router = '';
-        
-            // Iterate through each plan
             foreach ($plans as $plan) {
-                // Check if the plan uses RADIUS for authentication and bandwidth management
                 if ($plan['is_radius']) {
-                    // Convert the bandwidth rates to the appropriate format for RADIUS
-                    $raddown = $plan['rate_down_unit'] == 'Kbps' ? '000' : '000000';
-                    $radup = $plan['rate_up_unit'] == 'Kbps' ? '000' : '000000';
+                    if ($plan['rate_down_unit'] == 'Kbps') {
+                        $raddown = '000';
+                    } else {
+                        $raddown = '000000';
+                    }
+                    if ($plan['rate_up_unit'] == 'Kbps') {
+                        $radup = '000';
+                    } else {
+                        $radup = '000000';
+                    }
                     $radiusRate = $plan['rate_up'] . $radup . '/' . $plan['rate_down'] . $raddown;
-        
-                    // Update or insert the plan into the RADIUS server
                     Radius::planUpSert($plan['id'], $radiusRate, $plan['pool']);
                     $log .= "DONE : RADIUS $plan[name_plan], $plan[pool], $radiusRate<br>";
                 } else {
-                    // Establish a new router connection if the current router is different
                     if ($router != $plan['routers']) {
                         $mikrotik = Mikrotik::info($plan['routers']);
                         $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
                         $router = $plan['routers'];
                     }
-        
-                    // Determine the units for the bandwidth
-                    $unitdown = $plan['rate_down_unit'] == 'Kbps' ? 'k' : 'M';
-                    $unitup = $plan['rate_up_unit'] == 'Kbps' ? 'k' : 'M';
+                    if ($plan['rate_down_unit'] == 'Kbps') {
+                        $unitdown = 'k';
+                    } else {
+                        $unitdown = 'M';
+                    }
+                    if ($plan['rate_up_unit'] == 'Kbps') {
+                        $unitup = 'k';
+                    } else {
+                        $unitup = 'M';
+                    }
                     $rate = $plan['rate_up'] . $unitup . "/" . $plan['rate_down'] . $unitdown;
         
-                    // Check if all burst fields are provided and not zero
-                    if (!empty($plan['burst_limit_up']) && !empty($plan['burst_limit_down']) &&
-                        !empty($plan['burst_threshold_up']) && !empty($plan['burst_threshold_down']) &&
-                        !empty($plan['burst_time'])) {
-                        // Construct the burst settings string
-                        $burst_limit = $plan['burst_limit_up'] . ($plan['burst_limit_up_unit'] == 'Kbps' ? 'k' : 'M') .
-                                        "/" . $plan['burst_limit_down'] . ($plan['burst_limit_down_unit'] == 'Kbps' ? 'k' : 'M');
-                        $burst_threshold = $plan['burst_threshold_up'] . ($plan['burst_threshold_up_unit'] == 'Kbps' ? 'k' : 'M') .
-                                            "/" . $plan['burst_threshold_down'] . ($plan['burst_threshold_down_unit'] == 'Kbps' ? 'k' : 'M');
-                        $burst_time = $plan['burst_time'];
+                    // Get the burst limit
+                    $burst_limit_up = $plan['burst_limit_up'];
+                    $burst_limit_up_unit = $plan['burst_limit_up_unit'] == 'Kbps' ? 'k' : 'M';
+                    $burst_limit_down = $plan['burst_limit_down'];
+                    $burst_limit_down_unit = $plan['burst_limit_down_unit'] == 'Kbps' ? 'k' : 'M';
+                    $burst_limit = $burst_limit_up . $burst_limit_up_unit . "/" . $burst_limit_down . $burst_limit_down_unit;
         
-                        // Append burst settings to the rate limit string
-                        $rate .= "/" . $burst_limit . "/" . $burst_threshold . "/" . $burst_time . "/" . $burst_time;
-                    }
+                    // Get the burst threshold
+                    $burst_threshold_up = $plan['burst_threshold_up'];
+                    $burst_threshold_up_unit = $plan['burst_threshold_up_unit'] == 'Kbps' ? 'k' : 'M';
+                    $burst_threshold_down = $plan['burst_threshold_down'];
+                    $burst_threshold_down_unit = $plan['burst_threshold_down_unit'] == 'Kbps' ? 'k' : 'M';
+                    $burst_threshold = $burst_threshold_up . $burst_threshold_up_unit . "/" . $burst_threshold_down . $burst_threshold_down_unit;
         
-                    // Send the rate limit settings to the MikroTik router
+                    // Get the burst time
+                    $burst_time = $plan['burst_time'];
+        
+                    // Construct the rate limit string with burst information
+                    $rate = $rate . "/" . $burst_limit . "/" . $burst_threshold . "/" . $burst_time . "/" . $burst_time;
                     Mikrotik::addPpoePlan($client, $plan['name_plan'], $plan['pool'], $rate);
                     $log .= "DONE : $plan[name_plan], $plan[pool], $rate<br>";
-        
-                    // Set the expired pool if applicable
                     if (!empty($plan['pool_expired'])) {
                         Mikrotik::setPpoePlan($client, 'EXPIRED FREEISPRADIUS ' . $plan['pool_expired'], $plan['pool_expired'], '1K/1K');
                         $log .= "DONE Expired : EXPIRED FREEISPRADIUS $plan[pool_expired]<br>";
                     }
                 }
             }
-        
-            // Redirect to the PPPoE services page with a success message and log
             r2(U . 'services/pppoe', 's', $log);
         }
-        
 
 
     else if ($routes['2'] == 'static') {
@@ -249,302 +241,6 @@ if (!empty($b['burst_time_for_upload']) && !empty($b['burst_time_for_download'])
         r2(U . 'services/static', 's', $log);
             break;
         }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        case 'sync-static':
-         
-            $routerId = _post('router') ?? null; // Fetch the router ID from the POST data
-            if (!$routerId) {
-               
-                r2(U . 'services/static', 'e', Lang::T('Router ID not provided.'));
-                break;
-            }
-        
-            // Fetch router details from the database
-            $router = ORM::for_table('tbl_routers')->find_one($routerId);
-            if (!$router) {
-              
-                r2(U . 'services/static', 'e', Lang::T('Router not found.'));
-                break;
-            }
-        
-         
-            // Retrieve all enabled Static IP plans for the selected router
-            $plans = ORM::for_table('tbl_bandwidth')
-                        ->join('tbl_plans', ['tbl_bandwidth.id', '=', 'tbl_plans.id_bw'])
-                        ->where('tbl_plans.type', 'static')
-                        ->where('tbl_plans.enabled', '1')
-                        ->where('tbl_plans.routers', $router->name) // Match router by name
-                        ->find_many();
-        
-            if (empty($plans)) {
-        
-                r2(U . 'services/static', 'e', Lang::T('No Static IP plans found for this router.'));
-                break;
-            }
-        
-            $log = '';
-            try {
-                // Establish a connection to the router
-           
-                $client = new RouterOS\Client($router->ip_address, $router->username, $router->password);
- 
-                // Iterate through each Static IP plan and sync
-                foreach ($plans as $plan) {
-        
-        
-                    // Determine bandwidth rate format for MikroTik
-                    $unitdown = ($plan['rate_down_unit'] == 'Kbps') ? 'k' : 'M';
-                    $unitup = ($plan['rate_up_unit'] == 'Kbps') ? 'k' : 'M';
-                    $rate = "{$plan['rate_up']}{$unitup}/{$plan['rate_down']}{$unitdown}";
-        
-                    // Include burst settings if applicable
-                    if (!empty($plan['burst_limit_for_upload']) && !empty($plan['burst_limit_for_download'])) {
-                        $burstLimitUpload = "{$plan['burst_limit_for_upload']}{$unitup}";
-                        $burstLimitDownload = "{$plan['burst_limit_for_download']}{$unitdown}";
-                        $rate .= " {$burstLimitUpload}/{$burstLimitDownload}";
-                    }
-        
-                    if (!empty($plan['burst_threshold_for_upload']) && !empty($plan['burst_threshold_for_download'])) {
-                        $burstThresholdUpload = "{$plan['burst_threshold_for_upload']}{$unitup}";
-                        $burstThresholdDownload = "{$plan['burst_threshold_for_download']}{$unitdown}";
-                        $rate .= " {$burstThresholdUpload}/{$burstThresholdDownload}";
-                    }
-        
-                    if (!empty($plan['burst_time_for_upload']) && !empty($plan['burst_time_for_download'])) {
-                        $burstTimeUpload = "{$plan['burst_time_for_upload']}";
-                        $burstTimeDownload = "{$plan['burst_time_for_download']}";
-                        $rate .= " {$burstTimeUpload}/{$burstTimeDownload}";
-                    }
-        
-                    // Add the Static IP plan to the router
-                    Mikrotik::addStaticPlan($client, $plan['name_plan'], $plan['pool'], $rate);
-                    $log .= "DONE: {$plan['name_plan']}, {$plan['pool']}, {$rate}<br>";
-        
-                    // Set expired pool if applicable
-                    if (!empty($plan['pool_expired'])) {
-                        Mikrotik::setStaticPlan($client, 'EXPIRED FREEISPRADIUS ' . $plan['pool_expired'], $plan['pool_expired'], '1K/1K');
-                        $log .= "DONE Expired: EXPIRED FREEISPRADIUS {$plan['pool_expired']}<br>";
-                    }
-                }
-        
-                // Redirect to the Static IP services page with success log
-                r2(U . 'services/static', 's', $log);
-        
-            } catch (Exception $e) {
-
-                r2(U . 'services/static', 'e', Lang::T('Failed to connect to router. Check router credentials and network settings.'));
-            }
-            break;
-        
-
-
-
-        case 'sync-pppoe':
-
-            $routerId = _post('router') ?? null; // Fetch the router ID from the POST data
-            if (!$routerId) {
-           
-                r2(U . 'services/pppoe', 'e', Lang::T('Router ID not provided.'));
-                break;
-            }
-        
-            // Fetch router details from the database
-            $router = ORM::for_table('tbl_routers')->find_one($routerId);
-            if (!$router) {
-          
-                r2(U . 'services/pppoe', 'e', Lang::T('Router not found.'));
-                break;
-            }
-        
-     
-        
-            // Retrieve all enabled PPPoE plans for the selected router
-            $plans = ORM::for_table('tbl_bandwidth')
-                        ->join('tbl_plans', ['tbl_bandwidth.id', '=', 'tbl_plans.id_bw'])
-                        ->where('tbl_plans.type', 'PPPOE')
-                        ->where('tbl_plans.enabled', '1')
-                        ->where('tbl_plans.routers', $router->name) // Match router by name
-                        ->find_many();
-        
-            if (empty($plans)) {
-
-                r2(U . 'services/pppoe', 'e', Lang::T('No PPPoE plans found for this router.'));
-                break;
-            }
-        
-            $log = '';
-            try {
-                // Establish a connection to the router
- 
-                $client = new RouterOS\Client($router->ip_address, $router->username, $router->password);
- 
-        
-                // Iterate through each PPPoE plan and sync
-                foreach ($plans as $plan) {
- 
-                    // Determine bandwidth rate format for MikroTik
-                    $unitdown = ($plan['rate_down_unit'] == 'Kbps') ? 'k' : 'M';
-                    $unitup = ($plan['rate_up_unit'] == 'Kbps') ? 'k' : 'M';
-                    $rate = "{$plan['rate_up']}{$unitup}/{$plan['rate_down']}{$unitdown}";
-        
-                    // Include burst settings if applicable
-                    if (!empty($plan['burst_limit_up']) && !empty($plan['burst_limit_down']) &&
-                        !empty($plan['burst_threshold_up']) && !empty($plan['burst_threshold_down']) &&
-                        !empty($plan['burst_time'])) {
-                        $burst_limit = "{$plan['burst_limit_up']}{$unitup}/{$plan['burst_limit_down']}{$unitdown}";
-                        $burst_threshold = "{$plan['burst_threshold_up']}{$unitup}/{$plan['burst_threshold_down']}{$unitdown}";
-                        $burst_time = $plan['burst_time'];
-                        $rate .= "/{$burst_limit}/{$burst_threshold}/{$burst_time}/{$burst_time}";
-                    }
-        
-                    // Add the PPPoE plan to the router
-                    Mikrotik::addPpoePlan($client, $plan['name_plan'], $plan['pool'], $rate);
-                    $log .= "DONE: {$plan['name_plan']}, {$plan['pool']}, {$rate}<br>";
-        
-                    // Set expired pool if applicable
-                    if (!empty($plan['pool_expired'])) {
-                        Mikrotik::setPpoePlan($client, 'EXPIRED FREEISPRADIUS ' . $plan['pool_expired'], $plan['pool_expired'], '1K/1K');
-                        $log .= "DONE Expired: EXPIRED FREEISPRADIUS {$plan['pool_expired']}<br>";
-                    }
-                }
-        
-                // Redirect to the PPPoE services page with success log
-                r2(U . 'services/pppoe', 's', $log);
-        
-            } catch (Exception $e) {
-
-                r2(U . 'services/pppoe', 'e', Lang::T('Failed to connect to router. Check router credentials and network settings.'));
-            }
-            break;
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        case 'sync-hotspot':
-
-    
-            if (!$routerId) {
- 
-                r2(U . 'services/hotspot', 'e', Lang::T('Router ID not provided.'));
-                break;
-            }
-    
-            // Fetch router details from the database
-            $router = ORM::for_table('tbl_routers')->find_one($routerId);
-            if (!$router) {
-  
-                r2(U . 'services/hotspot', 'e', Lang::T('Router not found.'));
-                break;
-            }
-    
- 
-    
-            // Retrieve all enabled Hotspot plans for the selected router
-            $plans = ORM::for_table('tbl_bandwidth')
-                        ->join('tbl_plans', ['tbl_bandwidth.id', '=', 'tbl_plans.id_bw'])
-                        ->where('tbl_plans.type', 'Hotspot')
-                        ->where('tbl_plans.enabled', '1')
-                        ->where('tbl_plans.routers', $router->name) // Match router by name
-                        ->find_many();
-    
-            if (empty($plans)) {
- 
-                r2(U . 'services/hotspot', 'e', Lang::T('No hotspot plans found for this router.'));
-                break;
-            }
-    
-            $log = '';
-            try {
-                // Establish a connection to the router
- 
-                $client = new RouterOS\Client($router->ip_address, $router->username, $router->password);
-
-    
-                // Iterate through each hotspot plan and sync
-                foreach ($plans as $plan) {
-
-    
-                    // Determine bandwidth rate format for MikroTik
-                    $unitdown = ($plan['rate_down_unit'] == 'Kbps') ? 'k' : 'M';
-                    $unitup = ($plan['rate_up_unit'] == 'Kbps') ? 'k' : 'M';
-                    $rate = "{$plan['rate_up']}{$unitup}/{$plan['rate_down']}{$unitdown}";
-    
-                    // Include burst settings if applicable
-                    if (!empty($plan['burst_limit_up']) && !empty($plan['burst_limit_down']) &&
-                        !empty($plan['burst_threshold_up']) && !empty($plan['burst_threshold_down']) &&
-                        !empty($plan['burst_time'])) {
-                        $burst_limit = "{$plan['burst_limit_up']}{$unitup}/{$plan['burst_limit_down']}{$unitdown}";
-                        $burst_threshold = "{$plan['burst_threshold_up']}{$unitup}/{$plan['burst_threshold_down']}{$unitdown}";
-                        $burst_time = $plan['burst_time'];
-                        $rate .= " $burst_limit $burst_threshold $burst_time/$burst_time";
-                    }
-    
-                    // Add the hotspot plan to the router
-                    Mikrotik::addHotspotPlan($client, $plan['name_plan'], $plan['shared_users'], $rate);
-                    $log .= "DONE: {$plan['name_plan']}, {$plan['shared_users']}, {$rate}<br>";
-    
-                    // Set expired pool if applicable
-                    if (!empty($plan['pool_expired'])) {
-                        Mikrotik::setHotspotExpiredPlan($client, 'EXPIRED FREEISPRADIUS ' . $plan['pool_expired'], $plan['pool_expired']);
-                        $log .= "DONE Expired: EXPIRED FREEISPRADIUS {$plan['pool_expired']}<br>";
-                    }
-                }
-    
-                // Redirect to the hotspot services page with success log
-                r2(U . 'services/hotspot', 's', $log);
-    
-            } catch (Exception $e) {
- 
-                r2(U . 'services/hotspot', 'e', Lang::T('Failed to connect to router. Check router credentials and network settings.'));
-            }
-            break;
- 
-    
-   
-        
-        
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

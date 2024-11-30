@@ -1,5 +1,4 @@
 <?php
-//add under sysytem/rcron.php
 
 include "../init.php";
 $isCli = true;
@@ -150,79 +149,62 @@ foreach ($d as $ds) {
                     echo " : ACTIVE \r\n";
 
 
-    } 
-    
-    else {
+    } else {
         $date_now = strtotime(date("Y-m-d H:i:s"));
         $expiration = strtotime($ds['expiration'] . ' ' . $ds['time']);
         echo $ds['expiration'] . " : " . (($isCli) ? $ds['username'] : Lang::maskText($ds['username']));
-    
         if ($date_now >= $expiration) {
             echo " : EXPIRED \r\n";
-    
-            // Fetch the necessary user and plan information
             $u = ORM::for_table('tbl_user_recharges')->where('id', $ds['id'])->find_one();
             $c = ORM::for_table('tbl_customers')->where('id', $ds['customer_id'])->find_one();
             $m = ORM::for_table('tbl_routers')->where('name', $ds['routers'])->find_one();
             $p = ORM::for_table('tbl_plans')->where('id', $u['plan_id'])->find_one();
             $price = Lang::moneyFormat($p['price']);
-    
-            // Check if the plan has 'is_radius' enabled and handle accordingly
             if ($p['is_radius']) {
                 if (empty($p['pool_expired'])) {
                     print_r(Radius::customerDeactivate($c['username']));
                 } else {
-                    // Move user to the expired pool
                     Radius::upsertCustomerAttr($c['username'], 'Framed-Pool', $p['pool_expired'], ':=');
                     print_r(Radius::disconnectCustomer($c['username']));
                 }
             } else {
                 try {
-                    // Connect to the Mikrotik router
-                    $client = Mikrotik::getClient($m['ip_address'], $m['username'], $m['password']);
-    
-                    if (!empty($p['pool_expired'])) {
-                        // Set the PPPoE user to the expired pool
-                        Mikrotik::setPpoeUserPlan($client, $c['username'], 'EXPIRED FREEISPRADIUS ' . $p['pool_expired']);
-                    } else {
-                        // Remove the PPPoE user if there's no expired pool set
-                        Mikrotik::removePpoeUser($client, $c['username']);
-                    }
-    
-                    // Remove the user from active PPPoE connections
-                    Mikrotik::removePpoeActive($client, $c['username']);
-                } catch (Exception $e) {
-                    echo "Failed to connect to router: " . $m['ip_address'] . "\n";
-                    echo "Error: " . $e->getMessage() . "\n";
-                    continue; // Skip to the next router
+                $client = Mikrotik::getClient($m['ip_address'], $m['username'], $m['password']);
+                if (!empty($p['pool_expired'])) {
+                    Mikrotik::setPpoeUserPlan($client, $c['username'], 'EXPIRED FREEISPRADIUS ' . $p['pool_expired']);
+                } else {
+                    Mikrotik::removePpoeUser($client, $c['username']);
                 }
+                Mikrotik::removePpoeActive($client, $c['username']);
+            } catch (Exception $e) {
+                echo "Failed to connect to router: " . $m['ip_address'] . "\n";
+                echo "Error: " . $e->getMessage() . "\n";
+                continue; // Skip to the next router
             }
-    
-            // Send a notification about the expiration
-            echo Message::sendPackageNotification($c, $u['namebp'], $price, $textExpired, $config['user_notification_expired']) . "\n";
-    
-            // Update the user's status to 'off' in the database
+        }
+        echo Message::sendPackageNotification($c, $u['namebp'], $price, $textExpired, $config['user_notification_expired'])."\n";
+
             $u->status = 'off';
             $u->save();
-    
-            // Handle auto-renewal from balance if enabled
+
+            // autorenewal from deposit
             if ($config['enable_balance'] == 'yes' && $c['auto_renewal']) {
                 if ($p && $p['enabled'] && $c['balance'] >= $p['price']) {
                     if (Package::rechargeUser($ds['customer_id'], $p['routers'], $p['id'], 'Customer', 'Balance')) {
-                        // Deduct the balance after a successful renewal
+                        // if success, then get the balance
                         Balance::min($ds['customer_id'], $p['price']);
                         echo "plan enabled: $p[enabled] | User balance: $c[balance] | price $p[price]\n";
-                        echo "auto renewal Success\n";
+                        echo "auto renewall Success\n";
                     } else {
                         echo "plan enabled: $p[enabled] | User balance: $c[balance] | price $p[price]\n";
-                        echo "auto renewal Failed\n";
+                        echo "auto renewall Failed\n";
                         Message::sendTelegram("FAILED RENEWAL #cron\n\n#u$c[username] #buy #PPPOE \n" . $p['name_plan'] .
-                            "\nRouter: " . $p['routers'] . "\nPrice: " . $p['price']);
+                            "\nRouter: " . $p['routers'] .
+                            "\nPrice: " . $p['price']);
                     }
                 }
             }
-        } else {
+        } else
             echo " : ACTIVE \r\n";
-        }
     }
-}    
+}
