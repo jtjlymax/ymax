@@ -12,6 +12,7 @@ ORM::configure('return_result_sets', true);
 ORM::configure('logging', true);
 
 // Function to manage log file lines
+// Function to manage log file lines
 function logToFile($filePath, $message, $maxLines = 5000) {
     $lines = file_exists($filePath) ? file($filePath, FILE_IGNORE_NEW_LINES) : [];
     $lines[] = '[' . date('Y-m-d H:i:s') . '] ' . $message;
