@@ -171,10 +171,11 @@ foreach ($d as $ds) {
                 try {
                 $client = Mikrotik::getClient($m['ip_address'], $m['username'], $m['password']);
                 if (!empty($p['pool_expired'])) {
-                    Mikrotik::setPpoeUserPlan($client, $c['username'], 'EXPIRED FREEISPRADIUS ' . $p['pool_expired']);
+                    Mikrotik::setPpoeUserPlan($client, $c['username'], 'EXPIRED YMAX ' . $p['pool_expired']);
                 } else {
                     Mikrotik::removePpoeUser($client, $c['username']);
                 }
+                //need to remove this code
                 Mikrotik::removePpoeActive($client, $c['username']);
             } catch (Exception $e) {
                 echo "Failed to connect to router: " . $m['ip_address'] . "\n";
