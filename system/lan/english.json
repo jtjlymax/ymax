@@ -536,5 +536,21 @@
     "Total_SMS_Failed": "Total SMS Failed",
     "Total_WhatsApp_Sent": "Total WhatsApp Sent",
     "Total_WhatsApp_Failed": "Total WhatsApp Failed",
-    "Group_created_successfully": "Group created successfully"
+    "Group_created_successfully": "Group created successfully",
+    "Sync_All": "Sync All",
+    "Sync_by_Router": "Sync by Router",
+    "Expired_IP_Pool": "Expired IP Pool",
+    "Select_Router_to_Sync": "Select Router to Sync",
+    "Sync_Now": "Sync Now",
+    "Plan_Type": "Plan Type",
+    "Time_Limit": "Time Limit",
+    "Data_Limit": "Data Limit",
+    "Buy_Balance": "Buy Balance",
+    "View_All_Messages": "View All Messages",
+    "Disable_auto_renewal_": "Disable auto renewal?",
+    "Auto_Renewal_On": "Auto Renewal On",
+    "Unpaid_Order": "Unpaid Order",
+    "expired": "expired",
+    "Cancel_the_order_": "Cancel the order?",
+    "Unlimited": "Unlimited"
 }
