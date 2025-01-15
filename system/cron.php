@@ -178,7 +178,6 @@ foreach ($d as $ds) {
                 }
             } else {
                 try {
-<<<<<<< HEAD
                     // Connect to the Mikrotik router
                     $client = Mikrotik::getClient($m['ip_address'], $m['username'], $m['password']);
     
@@ -197,20 +196,6 @@ foreach ($d as $ds) {
                     echo "Error: " . $e->getMessage() . "\n";
                     continue; // Skip to the next router
                 }
-=======
-                $client = Mikrotik::getClient($m['ip_address'], $m['username'], $m['password']);
-                if (!empty($p['pool_expired'])) {
-                    Mikrotik::setPpoeUserPlan($client, $c['username'], 'EXPIRED YMAX ' . $p['pool_expired']);
-                } else {
-                    Mikrotik::removePpoeUser($client, $c['username']);
-                }
-                //need to remove this code
-                Mikrotik::removePpoeActive($client, $c['username']);
-            } catch (Exception $e) {
-                echo "Failed to connect to router: " . $m['ip_address'] . "\n";
-                echo "Error: " . $e->getMessage() . "\n";
-                continue; // Skip to the next router
->>>>>>> 05bb81badeb234ce5f8e4b2274013e28e2c02454
             }
     
             // Send a notification about the expiration
